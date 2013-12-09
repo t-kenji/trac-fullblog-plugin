@@ -23,7 +23,7 @@ class FullBlogTagSystem(Component):
     def get_taggable_realm(self):
         return 'blog'
 
-    def get_tagged_resources(self, req, tags):
+    def get_tagged_resources(self, req, tags=None, filter=None):
         if 'TAGS_VIEW' not in req.perm or 'BLOG_VIEW' not in req.perm:
             return
 
