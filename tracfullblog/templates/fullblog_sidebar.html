@@ -21,7 +21,8 @@
       <p>
         <span class="metainfo">
           <a href="${req.href.blog(format='rss')}">
-            <img src="${chrome.htdocs_location}feed.png" alt="RSS" /> rss
+            <img py:if="blog_archive_rss_icon"
+                src="${chrome.htdocs_location}feed.png" alt="RSS" /> rss
           </a>
         </span>
         Archive: <a href="${req.href.blog('archive')}">All posts</a> (${blog_total})
@@ -49,7 +50,9 @@
           <li py:for="author, count in blog_authors">
             <span class="metainfo">
               <a href="${req.href.blog('author', author, format='rss')}">
-                rss</a>
+                <img py:if="blog_all_rss_icons"
+                    src="${chrome.htdocs_location}feed.png" alt="RSS" /> rss
+              </a>
             </span> 
             <a href="${req.href.blog('author', author)}">${author}</a> (${count})</li>
         </ul>
@@ -64,7 +67,9 @@
           <li py:for="category, count in blog_categories">
             <span class="metainfo">
               <a href="${req.href.blog('category', category, format='rss')}">
-                rss</a>
+                <img py:if="blog_all_rss_icons"
+                    src="${chrome.htdocs_location}feed.png" alt="RSS" /> rss
+              </a>
             </span> 
             <a href="${req.href.blog('category', category)}">${category}</a>
                   (${count})

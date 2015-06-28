@@ -69,6 +69,12 @@ class FullBlogModule(Component):
         """Option to specify how many recent posts to display on the
         front page of the Blog (and RSS feeds).""")
 
+    archive_rss_icon = BoolOption('fullblog', 'archive_rss_icon', True,
+        """Controls whether or not to display the rss icon""")
+
+    all_rss_icons = BoolOption('fullblog', 'all_rss_icons', False,
+        """Controls whether or not to display rss icons more than once""")
+
     # INavigationContributor methods
     
     def get_active_navigation_item(self, req):
@@ -383,6 +389,9 @@ class FullBlogModule(Component):
         add_stylesheet(req, 'common/css/code.css')
         data['blog_personal_blog'] = self.env.config.getbool('fullblog',
                                                 'personal_blog')
+        data['blog_archive_rss_icon'] = self.all_rss_icons \
+                                        or self.archive_rss_icon
+        data['blog_all_rss_icons'] = self.all_rss_icons
         return (template, data, None)
     
     # ISearchSource methods
