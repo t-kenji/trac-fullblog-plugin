@@ -100,7 +100,8 @@
                 <label for="blog-author">Post Author:</label><br />
                 <input id="blog-author" type="text" 
                       name="author" size="40"
-                      value="${defined('blog_edit') and blog_edit.author or req.authname}" />
+                      value="${(defined('blog_edit') and blog_edit.author)
+                               or (req.session.get('name') or req.authname)}" />
               </div>
               <div class="field">
                 <label for="blog-categories">Categories (space separated):</label><br />
