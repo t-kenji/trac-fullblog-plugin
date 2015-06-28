@@ -1,0 +1,11 @@
+.svn
+.hg
+.hgignore
+.hgsvn
+build
+dist
+Makefile.cfg
+TracFullBlogPlugin.egg-info/
+*.pyc
+*.pyo
+
