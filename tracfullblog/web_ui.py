@@ -199,8 +199,14 @@ class FullBlogModule(Component):
                     else:
                         add_warning(req, reason)
             data['blog_post'] = the_post
-            context = Context.from_request(req, the_post.resource)
+            context = Context.from_request(req, the_post.resource,
+                            absurls=format=='rss' and True or False)
             data['context'] = context
+            if format == 'rss':
+                return 'fullblog_post.rss', data, 'application/rss+xml'
+            # Regular web response
+            context = Context.from_request(req, the_post.resource)
+
             data['blog_attachments'] = AttachmentModule(self.env).attachment_data(context)
             # Previous and Next ctxtnav
             prev, next = blog_core.get_prev_next_posts(req.perm, the_post.name)
@@ -213,6 +219,9 @@ class FullBlogModule(Component):
                 prevnext_nav(req, 'Previous Post', 'Next Post')
             else:
                 prevnext_nav(req, 'Post')
+            # RSS feed for post and comments
+            add_link(req, 'alternate', req.href.blog(pagename, format='rss'),
+                            'RSS Feed', 'application/rss+xml', 'rss')
 
         elif command in ['create', 'edit']:
             template = 'fullblog_edit.html'

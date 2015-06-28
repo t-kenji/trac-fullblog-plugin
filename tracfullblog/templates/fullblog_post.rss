@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<rss version="2.0" xmlns:py="http://genshi.edgewall.org/"
+                   xmlns:dc="http://purl.org/dc/elements/1.1/"
+                   xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="macros.rss" />
+  <channel py:with="bp = blog_post">
+    <title>${project.name} - Blog: ${bp.title}</title>
+    <link>${abs_href.blog(bp.name)}</link>
+    <description>${bp.body}</description>
+    <language>en-US</language>
+    <generator>Trac ${trac.version}</generator>
+    <image py:if="chrome.logo.src_abs">
+      <title>${project.name}</title>
+      <url>$chrome.logo.src_abs</url>
+      <link>${abs_href.blog(bp.name)}</link>
+    </image>
+
+    <item py:for="bc in bp.get_comments()">
+      <title>Comment ${bc.number} by ${bc.author}</title>
+      <dc:creator>${bc.author}</dc:creator>
+      <pubDate>${http_date(bc.time)}</pubDate>
+      <link>${abs_href.blog(bp.name)}#comment-${bc.number}</link>
+      <guid isPermaLink="true">${abs_href.blog(bp.name)}#comment-${bc.number}</guid>
+      <description>${to_unicode(wiki_to_html(context(bp.resource), bc.comment))}</description>
+      <category py:for="cat in bp.category_list">${cat}</category>
+    </item>
+
+   </channel>
+</rss>
