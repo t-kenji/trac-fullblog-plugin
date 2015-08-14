@@ -108,7 +108,6 @@ class FullBlogSetup(Component):
         cursor = db.cursor()
         try:
             sql = "SELECT value FROM system WHERE name='fullblog_version'"
-            self.log.debug(sql)
             cursor.execute(sql)
             for row in cursor:
                 return int(row[0])

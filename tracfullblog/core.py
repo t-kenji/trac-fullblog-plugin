@@ -152,30 +152,31 @@ class FullBlogCore(Component):
     
     def get_bloginfotext(self):
         """ Retrieves the blog info text in sidebar from database. """
-        try:
-            cnx = self.env.get_db_cnx()
-            cursor = cnx.cursor()
-            cursor.execute("SELECT value from system " \
-                "WHERE name='fullblog_infotext'")
+        sql = "SELECT value from system WHERE name='fullblog_infotext'"
+        if hasattr(self.env, 'db_query'):
+            rows = list(self.env.db_query(sql))
+        else:
+            db = self.env.get_db_cnx()
+            cursor = db.cursor()
+            cursor.execute()
             rows = cursor.fetchall()
-            if rows:
-                return rows[0][0] # Only item in cursor (hopefully)
-            else:
-                return ''
-        except:
+        if rows:
+            return rows[0][0] # Only item in cursor (hopefully)
+        else:
             return ''
 
     def set_bloginfotext(self, text=''):
         """ Stores the blog info text in the database. """
-        try:
-            cnx = self.env.get_db_cnx()
-            cursor = cnx.cursor()
-            cursor.execute("UPDATE system set value=%s " \
-                "WHERE name=%s", (text, 'fullblog_infotext'))
-            cnx.commit()
-            return True
-        except:
-            return False
+        sql = "UPDATE system set value=%s WHERE name=%s"
+        args = (text, 'fullblog_infotext')
+        if hasattr(self.env, 'db_transaction'):
+            self.env.db_transaction(sql, args)
+        else:
+            db = self.env.get_db_cnx()
+            cursor = db.cursor()
+            cursor.execute(sql, args)
+            db.commit()
+        return True
     
     def get_prev_next_posts(self, perm, post_name):
         """ Returns the name of the next and previous posts when compared with

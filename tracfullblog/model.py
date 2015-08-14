@@ -37,12 +37,15 @@ def search_blog_posts(env, terms):
     Returns a list of tuples with:
         (name, version, publish_time, author, title, body) """
     assert terms
-    cnx = env.get_db_cnx()
-    cursor = cnx.cursor()
-    # SQL
+    # construct sql + args
     columns = ['bp1.name', 'bp1.title', 'bp1.body',
                'bp1.author', 'bp1.categories']
-    search_clause, args = search_to_sql(cnx, columns, terms)
+    if hasattr(env, 'db_query'):
+        with env.db_query as db:
+            search_clause, args = search_to_sql(db, columns, terms)
+    else:
+        db = env.get_db_cnx()
+        search_clause, args = search_to_sql(db, columns, terms)
     sql = "SELECT bp1.name, bp1.version, bp1.publish_time, bp1.author, " \
                "bp1.title, bp1.body " \
                "FROM fullblog_posts bp1," \
@@ -50,9 +53,14 @@ def search_blog_posts(env, terms):
                "FROM fullblog_posts GROUP BY name) bp2 " \
                "WHERE bp1.version = bp2.ver AND bp1.name = bp2.name " \
                "AND " + search_clause
-    env.log.debug("search_blog_posts() SQL: %r" % sql)
-    cursor.execute(sql, args)
-    # Return the items we have found
+    # perform search
+    if hasattr(env, 'db_query'):
+        cursor = env.db_query(sql, args)
+    else:
+        db = env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute(sql, args)
+    # return found items
     return [(row[0], row[1], to_datetime(row[2], utc), row[3],
             row[4], row[5]) for row in cursor]
 
@@ -62,16 +70,24 @@ def search_blog_comments(env, terms):
     Returns a list of tuples with:
         (post_name, comment_number, comment, comment_author, comment_time) """
     assert terms
-    cnx = env.get_db_cnx()
-    cursor = cnx.cursor()
-    # SQL
+    # construct sql + args
     columns = ['author', 'comment']
-    search_clause, args = search_to_sql(cnx, columns, terms)
+    if hasattr(env, 'db_query'):
+        with env.db_query as db:
+            search_clause, args = search_to_sql(db, columns, terms)
+    else:
+        db = env.get_db_cnx()
+        search_clause, args = search_to_sql(db, columns, terms)
     sql = "SELECT name, number, comment, author, time " \
           "FROM fullblog_comments WHERE " + search_clause
-    env.log.debug("search_blog_comments() SQL: %r" % sql)
-    cursor.execute(sql, args)
-    # Return the items we have found
+    # perform search
+    if hasattr(env, 'db_query'):
+        cursor = env.db_query(sql, args)
+    else:
+        db = env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute(sql, args)
+    # return found items
     return [(row[0], row[1], row[2], row[3], to_datetime(row[4], utc))
             for row in cursor]
 
@@ -93,39 +109,49 @@ def get_blog_posts(env, category='', author='', from_dt=None, to_dt=None,
         (name, version, time, author, title, body, category_list)
     Use 'name' and 'version' to instantiate BlogPost objects."""
 
-    cnx = env.get_db_cnx()
-    cursor = cnx.cursor()
+    # Get db.like() text for reuse
+    if hasattr(env, 'db_query'):
+        with env.db_query as db:
+            db_like = db.like()
+    else:
+        db = env.get_db_cnx()
+        db_like = db.like()
 
-    # Build the list of WHERE restrictions
+    # Build SQL with list of WHERE restrictions
     time_field = 'bp1.publish_time'
     join_operation = ",(SELECT name, max(version) AS ver " \
                      "FROM fullblog_posts GROUP BY name) bp2 " \
                      "WHERE bp1.version = bp2.ver AND bp1.name = bp2.name "
     where_clause = ""
-    where_values = None
+    args = None
     if all_versions:
         time_field = 'bp1.version_time'
         join_operation = ""
-    args = [category and ("bp1.categories "+cnx.like(), "%"+category+"%"),
+    clauses = [category and ("bp1.categories "+db_like, "%"+category+"%"),
             author and ("bp1.author=%s", author) or None,
             from_dt and (time_field+">%s", to_timestamp(from_dt)) or None,
             to_dt and (time_field+"<%s", to_timestamp(to_dt)) or None]
-    args = [arg for arg in args if arg]  # Ignore the None values
-    if args:
+    clauses = [arg for arg in clauses if arg]  # Ignore the None values
+    if clauses:
         where_start = "AND "
         if not join_operation:
             where_start = "WHERE "
-        where_clause = where_start + " AND ".join([arg[0] for arg in args])
-        where_values = tuple([arg[1] for arg in args])
-
-    # Run the SQL
+        where_clause = where_start + " AND ".join([arg[0] for arg in clauses])
+        args = tuple([arg[1] for arg in clauses])
     sql = "SELECT bp1.name, bp1.version, bp1.publish_time, bp1.author, " \
                "bp1.title, bp1.body, bp1.categories " \
                "FROM fullblog_posts bp1 " \
                + join_operation + where_clause \
                + " ORDER BY bp1.publish_time DESC"
-    env.log.debug("get_blog_posts() SQL: %r (%r)" % (sql, where_values))
-    cursor.execute(sql, where_values)
+
+    # Execute SQL
+    if hasattr(env, 'db_query'):
+        with env.db_query as db:
+            cursor = env.db_query(sql, args)
+    else:
+        db = env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute(sql, args)
 
     # Return the rows
     blog_posts = []
@@ -150,23 +176,25 @@ def get_blog_comments(env, post_name='', from_dt=None, to_dt=None):
         sorted(comments, key=itemgetter(4), reverse=True) """
 
     # Build the list of WHERE restrictions
-    args = [post_name and ("name=%s", post_name) or None,
+    clauses = [post_name and ("name=%s", post_name) or None,
             from_dt and ("time>%s", to_timestamp(from_dt)) or None,
             to_dt and ("time<%s", to_timestamp(to_dt)) or None]
-    args = [arg for arg in args if arg]
+    clauses = [arg for arg in clauses if arg]
     where_clause = ""
-    where_values = None
-    if args:
-        where_clause = "WHERE " + " AND ".join([arg[0] for arg in args])
-        where_values = tuple([arg[1] for arg in args])
-
-    # Do the SELECT
-    cnx = env.get_db_cnx()
-    cursor = cnx.cursor()
+    args = None
+    if clauses:
+        where_clause = "WHERE " + " AND ".join([arg[0] for arg in clauses])
+        args = tuple([arg[1] for arg in clauses])
     sql = "SELECT name, number, comment, author, time " \
             "FROM fullblog_comments " + where_clause
-    env.log.debug("get_blog_comments() SQL: %r (%r)" % (sql, where_values))
-    cursor.execute(sql, where_values or None)
+
+    # Do the SELECT
+    if hasattr(env, 'db_query'):
+        cursor = env.db_query(sql, args)
+    else:    
+        db = env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute(sql, args)
 
     # Return the items we have found
     return [(row[0], row[1], row[2], row[3], to_datetime(row[4], utc))
@@ -175,13 +203,16 @@ def get_blog_comments(env, post_name='', from_dt=None, to_dt=None):
 def get_blog_resources(env):
     """ Returns a list of resource instances of existing blog posts (current
     version). The list is ordered by publish_time (newest first). """
-    cnx = env.get_db_cnx()
-    cursor = cnx.cursor()
     sql = "SELECT bp1.name FROM fullblog_posts bp1, " \
           "(SELECT name, max(version) AS ver FROM fullblog_posts " \
           "GROUP BY name) bp2 WHERE bp1.name = bp2.name AND " \
           "bp1.version = ver ORDER BY bp1.publish_time DESC"
-    cursor.execute(sql)
+    if hasattr(env, 'db_query'):
+        cursor = env.db_query(sql)
+    else:
+        db = env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute(sql)
     blog_realm = Resource('blog')
     return [blog_realm(id=post[0], version=0) for post in cursor]
 
@@ -279,42 +310,53 @@ class BlogComment(object):
         if warnings or verify_only:
             return warnings
         # No problems (we think), try to save.
-        cnx = self.env.get_db_cnx()
-        cursor = cnx.cursor()
         self.env.log.debug("Creating blog comment number %d for %r" % (
                 number, self.post_name))
-        cursor.execute("INSERT INTO fullblog_comments "
-                "VALUES (%s, %s, %s, %s, %s)", (self.post_name,
-                number, comment, author, to_timestamp(self.time)) )
-        cnx.commit()
+        sql = "INSERT INTO fullblog_comments VALUES (%s, %s, %s, %s, %s)"
+        args = (self.post_name, number, comment, author,
+                to_timestamp(self.time))
+        if hasattr(self.env, 'db_transaction'):
+            self.env.db_transaction(sql, args)
+        else:
+            db = self.env.get_db_cnx()
+            cursor = db.cursor()
+            cursor.execute(sql, args)
+            db.commit()
         self._load_comment(number)
         return warnings
     
     def delete(self):
         if not self.post_name or not self.number:
             return False
-        cnx = self.env.get_db_cnx()
-        cursor = cnx.cursor()
         self.env.log.debug("Deleting blog comment number %d for %r" % (
                 self.number, self.post_name))
-        cursor.execute("DELETE FROM fullblog_comments "
-                "WHERE name=%s AND number=%s",  (
-                self.post_name, self.number))
-        cnx.commit()
+        sql = "DELETE FROM fullblog_comments WHERE name=%s AND number=%s"
+        args = (self.post_name, self.number)
+        if hasattr(self.env, 'db_transaction'):
+            self.env.db_transaction(sql, args)
+        else:
+            db = self.env.get_db_cnx()
+            cursor = db.cursor()
+            cursor.execute(sql, args)
+            db.commit()
         return True
 
     # Internal methods
     
     def _load_comment(self, number):
         """ Loads a comment from database if found. """
-        cnx = self.env.get_db_cnx()
-        cursor = cnx.cursor()
         self.env.log.debug("Fetching blog comment number %d for %r" % (
                 number, self.post_name))
-        cursor.execute("SELECT comment, author, time "
-                "FROM fullblog_comments "
-                "WHERE name=%s AND number=%s",
-                (self.post_name, number))
+        sql = "SELECT comment, author, time " \
+                "FROM fullblog_comments " \
+                "WHERE name=%s AND number=%s"
+        args = (self.post_name, number)
+        if hasattr(self.env, 'db_query'):
+            cursor = self.env.db_query(sql, args)
+        else:
+            db = self.env.get_db_cnx()
+            cursor = db.cursor()
+            cursor.execute(sql, args)
         for row in cursor:
             self.number = number
             self.comment = row[0]
@@ -326,13 +368,17 @@ class BlogComment(object):
     def _next_comment_number(self):
         """ Function that returns the next available comment number.
         If no blog post exists (can't attach comment), it returns 0. """
-        cnx = self.env.get_db_cnx()
-        cursor = cnx.cursor()
-        cursor.execute("SELECT number FROM fullblog_comments "
-            "WHERE name=%s", (self.post_name,))
-        cmts = sorted([row[0] for row in cursor])
-        if cmts:
-            return cmts[-1] + 1 # Add 1 for next free
+        sql = "SELECT number FROM fullblog_comments WHERE name=%s"
+        args = (self.post_name,)
+        if hasattr(self.env, 'db_query'):
+            cursor = self.env.db_query(sql, args)
+        else:
+            db = self.env.get_db_cnx()
+            cursor = db.cursor()
+            cursor.execute(sql, args)
+        comments = sorted([row[0] for row in cursor])
+        if comments:
+            return comments[-1] + 1 # Add 1 for next free
         # No item found - need to double-check to find out why
         bp = BlogPost(self.env, self.post_name)
         if bp.get_versions():
@@ -396,16 +442,19 @@ class BlogPost(object):
             version = self.versions[-1] + 1
         self.env.log.debug("Saving new version %d of blog post %r "
                 "from author %r" % (version, self.name, version_author))
-        cnx = self.env.get_db_cnx()
-        cursor = cnx.cursor()
-        cursor.execute("INSERT INTO fullblog_posts "
-                "(name, version, title, body, publish_time, version_time, "
-                "version_comment, version_author, author, categories) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (self.name, version, self.title, self.body,
+        sql = "INSERT INTO fullblog_posts " \
+                "(name, version, title, body, publish_time, version_time, " \
+                "version_comment, version_author, author, categories) " \
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        args = (self.name, version, self.title, self.body,
                 to_timestamp(self.publish_time), version_time,
-                version_comment, version_author, self.author, self.categories))
-        cnx.commit()
+                version_comment, version_author, self.author, self.categories)
+        if hasattr(self.env, 'db_transaction'):
+            self.env.db_transaction(sql, args)
+        else:
+            db = self.env.get_db_cnx()
+            cursor = db.cursor()
+            cursor.execute(sql, args)
         self._load_post(version)
         return warnings
     
@@ -432,32 +481,42 @@ class BlogPost(object):
         """ Deletes a specific version, or if none is provided
         then all versions will be deleted. If all (or just one version exists) it
         will also delete all comments and any attachments attached to the post. """
-        cnx = self.env.get_db_cnx()
-        cursor = cnx.cursor()
         if version:
-            cursor.execute("DELETE FROM fullblog_posts "
-                    "WHERE name=%s AND version=%s",
-                    (self.name, version))
+            sql = "DELETE FROM fullblog_posts WHERE name=%s AND version=%s"
+            args = (self.name, version)
         else:
-            cursor.execute("DELETE FROM fullblog_posts "
-                    "WHERE name=%s", (self.name,))
-        cnx.commit()
+            sql = "DELETE FROM fullblog_posts WHERE name=%s"
+            args = (self.name,)
+        if hasattr(self.env, 'db_transaction'):
+            self.env.db_transaction(sql, args)
+            db = None
+        else:
+            db = self.env.get_db_cnx()
+            cursor = db.cursor()
+            cursor.execute(sql, args)
+            db.commit()
         if not len(self.get_versions()):
             # Delete comments
             for comment in self.get_comments():
                 comment.delete()
             # Delete attachments
-            Attachment.delete_all(self.env, 'blog', self.name, cnx)
-            cnx.commit()
+            if db is not None:
+                Attachment.delete_all(self.env, 'blog', self.name, db)
+            else:
+                Attachment.delete_all(self.env, 'blog', self.name)
         return True
     
     def get_versions(self):
         """ Returns a sorted list of versions stored for the blog post.
         Returns empty list ([]) if no versions exists. """
-        cnx = self.env.get_db_cnx()
-        cursor = cnx.cursor()
-        cursor.execute("SELECT version from fullblog_posts "
-                "WHERE name=%s", (self.name,) )
+        sql = "SELECT version from fullblog_posts WHERE name=%s"
+        args = (self.name,)
+        if hasattr(self.env, 'db_query'):
+            cursor = self.env.db_query(sql, args)
+        else:
+            db = self.env.get_db_cnx()
+            cursor = db.cursor()
+            cursor.execute(sql, args)
         self.versions = sorted([row[0] for row in cursor])
         return self.versions
         
@@ -482,13 +541,17 @@ class BlogPost(object):
             # No blog post with the name exists
             return {}
         version = version or self.versions[-1]
-        cnx = self.env.get_db_cnx()
-        cursor = cnx.cursor()
-        cursor.execute("SELECT title, body, publish_time, version_time, "
-                "version_comment, version_author, author, categories "
-                "FROM fullblog_posts "
-                "WHERE name=%s AND version=%s",
-                (self.name, version) )
+        sql = "SELECT title, body, publish_time, version_time, " \
+              "version_comment, version_author, author, categories " \
+              "FROM fullblog_posts " \
+              "WHERE name=%s AND version=%s"
+        args = (self.name, version)
+        if hasattr(self.env, 'db_query'):
+            cursor = self.env.db_query(sql, args)
+        else:
+            db = self.env.get_db_cnx()
+            cursor = db.cursor()
+            cursor.execute(sql, args)
         fields = {}
         for row in cursor:
             fields['version'] = version

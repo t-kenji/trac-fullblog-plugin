@@ -11,7 +11,11 @@ class GroupPostsByMonthTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
-        FullBlogSetup(self.env).upgrade_environment(self.env.get_db_cnx())
+        if hasattr(self.env, 'db_transaction'):
+            with self.env.db_transaction as db:
+                FullBlogSetup(self.env).upgrade_environment(db)
+        else:
+            FullBlogSetup(self.env).upgrade_environment(self.env.get_db_cnx())
 
     def tearDown(self):
         self.env.destroy_db()
@@ -47,7 +51,11 @@ class GetBlogPostsTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
-        FullBlogSetup(self.env).upgrade_environment(self.env.get_db_cnx())
+        if hasattr(self.env, 'db_transaction'):
+            with self.env.db_transaction as db:
+                FullBlogSetup(self.env).upgrade_environment(db)
+        else:
+            FullBlogSetup(self.env).upgrade_environment(self.env.get_db_cnx())
 
     def tearDown(self):
         self.env.destroy_db()

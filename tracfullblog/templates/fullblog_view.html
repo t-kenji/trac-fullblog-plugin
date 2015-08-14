@@ -5,7 +5,7 @@
       xmlns:py="http://genshi.edgewall.org/"
       xmlns:xi="http://www.w3.org/2001/XInclude">
   <xi:include href="layout.html" />
-  <xi:include href="macros.html" />
+  <xi:include href="macros.html"><xi:fallback /></xi:include>
   <head>
     <title>Blog${defined('blog_post') and ': ' + blog_post.title \
                 or req.args.get('blog_path') and defined('blog_list_title') \
@@ -45,7 +45,15 @@
                   <input type="submit" value="${_('Edit post')}" accesskey="e" />
                 </div>
               </form>
-              ${attach_file_form(blog_attachments)}
+              <py:choose test="defined('attach_file_form')">
+                <py:when test="True">
+                  ${attach_file_form(blog_attachments)}
+                </py:when>
+                <py:when test="False">
+                  <xi:include href="attach_file_form.html"
+                              py:with="alist=blog_attachments"/>
+                </py:when>
+              </py:choose>
               <form method="get" action="${href.blog('delete', blog_post.name)}"
                     py:if="'BLOG_DELETE' in perm(blog_post.resource)">
                 <div>
@@ -57,7 +65,15 @@
           </py:if>
         
           <!--! List attachments -->
-          ${list_of_attachments(blog_attachments, compact=True)}
+          <py:choose test="defined('list_of_attachments')">
+            <py:when test="True">
+              ${list_of_attachments(blog_attachments, compact=True)}
+            </py:when>
+            <py:when test="False">
+              <xi:include href="list_of_attachments.html"
+                          py:with="alist=blog_attachments; compact=True"/>
+            </py:when>
+          </py:choose>
 
           <!--! View comments -->
           <div id="comments" py:with="blog_comments = blog_post.get_comments()">

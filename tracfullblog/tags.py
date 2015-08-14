@@ -27,9 +27,6 @@ class FullBlogTagSystem(Component):
         if 'TAGS_VIEW' not in req.perm or 'BLOG_VIEW' not in req.perm:
             return
 
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-
         args = []
         constraints = []
         sql = "SELECT bp1.name, bp1.categories, bp1.version " \
@@ -46,8 +43,14 @@ class FullBlogTagSystem(Component):
         if constraints:
             sql += " AND " + " AND ".join(constraints)
         sql += " ORDER BY bp1.name"
-        self.env.log.debug(sql)
-        cursor.execute(sql, args)
+
+        if hasattr(self.env, 'db_query'):
+            cursor = self.env.db_query(sql, args)
+        else:
+            db = self.env.get_db_cnx()
+            cursor = db.cursor()
+            cursor.execute(sql, args)
+
         for row in cursor:
             post_name, categories = row[0], set(_parse_categories(row[1]))
             if not tags or categories.intersection(tags):

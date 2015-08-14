@@ -2,7 +2,6 @@
 <rss version="2.0" xmlns:py="http://genshi.edgewall.org/"
                    xmlns:dc="http://purl.org/dc/elements/1.1/"
                    xmlns:xi="http://www.w3.org/2001/XInclude">
-  <xi:include href="macros.rss" />
   <channel>
     <title>${project.name} - Blog</title>
     <link>${abs_href.blog()}</link>
