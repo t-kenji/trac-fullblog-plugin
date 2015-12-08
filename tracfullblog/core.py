@@ -158,7 +158,7 @@ class FullBlogCore(Component):
         else:
             db = self.env.get_db_cnx()
             cursor = db.cursor()
-            cursor.execute()
+            cursor.execute(sql)
             rows = cursor.fetchall()
         if rows:
             return rows[0][0] # Only item in cursor (hopefully)
