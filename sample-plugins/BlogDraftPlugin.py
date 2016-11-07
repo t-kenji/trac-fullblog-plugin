@@ -50,8 +50,10 @@ class BlogDraftPlugin(Component):
             return
         if resource.realm == 'blog' and resource.id:
             the_post = BlogPost(self.env, resource.id, resource.version)
+            author = self.config.getbool('trac', 'ignore_auth_case') \
+                          and the_post.author.lower() or the_post.author
             for category in the_post.category_list:
-                if category in self.draft and the_post.author != username:
+                if category in self.draft and author != username:
                     # Block all access regardless
                     return False
 
@@ -60,11 +62,13 @@ class BlogDraftPlugin(Component):
     def validate_blog_post(self, req, postname, version, fields):
         """ If the post is a draft, just do some rudimentary checking to
         make sure the author does not shoot him/herself in the foot. """
+        author = self.config.getbool('trac', 'ignore_auth_case') \
+                      and fields['author'].lower() or fields['author']
         for category in _parse_categories(fields['categories']):
             if category in self.draft:
                 if req.authname == 'anonymous':
                     return [(None, 'You need to be logged in to save as draft.')]
-                elif req.authname != fields['author']:
+                elif req.authname != author:
                     return [(None, "Cannot save draft for an author that isn't you.")]
         return []
 
