@@ -46,7 +46,11 @@ schema = [
 def to_sql(env, table):
     """ Convenience function to get the to_sql for the active connector."""
     from trac.db.api import DatabaseManager
-    dc = DatabaseManager(env)._get_connector()[0]
+    dm = DatabaseManager(env)
+    if hasattr(dm, 'get_connector'):             # Trac ~+1.3.2
+        dc = dm.get_connector()[0]
+    else:
+        dc = dm._get_connector()[0]
     return dc.to_sql(table)
 
 def create_tables(env, db):
@@ -85,32 +89,42 @@ class FullBlogSetup(Component):
         """Called when a new Trac environment is created."""
         pass
 
-    def environment_needs_upgrade(self, db):
+    def environment_needs_upgrade(self, db=None):
         """Called when Trac checks whether the environment needs to be upgraded.
         Returns `True` if upgrade is needed, `False` otherwise."""
         return self._get_version(db) != db_version
 
-    def upgrade_environment(self, db):
+    def upgrade_environment(self, db=None):
         """Actually perform an environment upgrade, but don't commit as
         that is done by the common upgrade procedure when all plugins are done."""
         current_ver = self._get_version(db)
         if current_ver == 0:
-            create_tables(self.env, db)
+            if hasattr(self.env, 'db_transaction'):
+                with self.env.db_transaction as db:
+                    create_tables(self.env, db)
+            else:
+                create_tables(self.env, db)
         else:
-            while current_ver+1 <= db_version:
-                upgrade_map[current_ver+1](self.env, db)
-                current_ver += 1
-            cursor = db.cursor()
-            cursor.execute("UPDATE system SET value=%s WHERE name='fullblog_version'",
-                                str(db_version))
+            if hasattr(self.env, 'db_transaction'):
+                with self.env.db_transaction as db:
+                    self._do_upgrades(db)
+            else:
+                self._do_upgrades(db)
 
-    def _get_version(self, db):
+    def _do_upgrades(self, db):
+        while current_ver+1 <= db_version:
+            upgrade_map[current_ver+1](self.env, db)
+            current_ver += 1
         cursor = db.cursor()
-        try:
-            sql = "SELECT value FROM system WHERE name='fullblog_version'"
+        cursor.execute("UPDATE system SET value=%s WHERE name='fullblog_version'",
+                            str(db_version))
+
+    def _get_version(self, db=None):
+        sql = "SELECT value FROM system WHERE name='fullblog_version'"
+        if hasattr(self.env, 'db_query'):
+            rows = self.env.db_query(sql)
+        else: 
+            cursor = db.cursor()
             cursor.execute(sql)
-            for row in cursor:
-                return int(row[0])
-            return 0
-        except:
-            return 0
+            rows = list(cursor)
+        return rows and int(rows[0]) or 0

@@ -121,15 +121,15 @@ ifdef trac
 				  fts = FunctionalTestSuite(); \
 				  fts.setUp(); \
 				  fts.tearDown()"
+	# Make sure template changes gets picked up automatically
+	$(python) -m trac.admin.console "$(trac)/testenv/trac" \
+						config set trac auto_reload true
 	# Install plugin and upgrade environment
 	$(python) setup.py develop -mxd $(trac)/testenv/trac/plugins
 	$(python) -m trac.admin.console "$(trac)/testenv/trac" \
-						"config set components tracfullblog.* enabled"
+						config set components tracfullblog.\* enabled
 	$(python) -m trac.admin.console "$(trac)/testenv/trac" \
-						"upgrade"
-	# Make sure template changes gets picked up automatically
-	$(python) -m trac.admin.console "$(trac)/testenv/trac" \
-						"config set trac auto_reload true"
+						upgrade
 	# Done
 	@echo "Project created and upgraded. Plugin linked. Hopefully."
 endif

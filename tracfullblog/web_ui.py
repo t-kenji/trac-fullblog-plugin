@@ -18,7 +18,6 @@ from genshi.builder import tag
 from trac.attachment import AttachmentModule
 from trac.config import ListOption, BoolOption, IntOption
 from trac.core import *
-from trac.mimeview.api import Context
 from trac.resource import Resource
 from trac.search.api import ISearchSource, shorten_result
 from trac.timeline.api import ITimelineEventProvider
@@ -30,6 +29,12 @@ from trac.web.api import IRequestHandler, HTTPNotFound
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
         add_stylesheet, add_link, add_warning, add_notice, add_ctxtnav, prevnext_nav
 from trac.wiki.formatter import format_to
+
+try:
+    from trac.web.chrome import web_context          # Trac ~+1.3
+except ImportError:
+    from trac.mimeview.api import Context
+    web_context = Context.from_request
 
 try:
     from trac.util.compat import itemgetter
@@ -199,13 +204,13 @@ class FullBlogModule(Component):
                     else:
                         add_warning(req, reason)
             data['blog_post'] = the_post
-            context = Context.from_request(req, the_post.resource,
+            context = web_context(req, the_post.resource,
                             absurls=format=='rss' and True or False)
             data['context'] = context
             if format == 'rss':
                 return 'fullblog_post.rss', data, 'application/rss+xml'
             # Regular web response
-            context = Context.from_request(req, the_post.resource)
+            context = web_context(req, the_post.resource)
 
             data['blog_attachments'] = AttachmentModule(self.env).attachment_data(context)
             # Previous and Next ctxtnav
@@ -275,7 +280,7 @@ class FullBlogModule(Component):
                             req, the_post, req.authname, version_comment))
                     if not warnings:
                         req.redirect(req.href.blog(the_post.name))
-                context = Context.from_request(req, the_post.resource)
+                context = web_context(req, the_post.resource)
                 data['context'] = context
                 data['blog_attachments'] = AttachmentModule(self.env).attachment_data(context)
                 data['blog_action'] = 'preview'
@@ -383,7 +388,7 @@ class FullBlogModule(Component):
             raise HTTPNotFound("Not a valid blog path.")
 
         if (not command or command.startswith('listing-')) and format == 'rss':
-            data['context'] = Context.from_request(req, absurls=True)
+            data['context'] = web_context(req, absurls=True)
             data['blog_num_items'] = self.num_items
             return 'fullblog.rss', data, 'application/rss+xml'
 

@@ -455,6 +455,7 @@ class BlogPost(object):
             db = self.env.get_db_cnx()
             cursor = db.cursor()
             cursor.execute(sql, args)
+            db.commit()
         self._load_post(version)
         return warnings
     

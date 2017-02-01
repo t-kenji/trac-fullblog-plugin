@@ -55,7 +55,8 @@ class FullBlogCore(Component):
                     'archive', 'category', 'author']
 
     def __init__(self):
-        self.env.systeminfo.append(('FullBlog',
+        if hasattr(self.env, 'systeminfo'):        # removed Trac ~+1.3
+            self.env.systeminfo.append(('FullBlog',
                 __import__('tracfullblog', ['__version__']).__version__))
 
     # IPermissionRequestor method

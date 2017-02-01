@@ -1,25 +1,11 @@
 
 import datetime
-import unittest
 
-from trac.test import EnvironmentStub, Mock
-
-from tracfullblog.db import FullBlogSetup
+from tracfullblog.tests import FullBlogTestCaseTemplate
 from tracfullblog.model import *
 
-class GroupPostsByMonthTestCase(unittest.TestCase):
 
-    def setUp(self):
-        self.env = EnvironmentStub()
-        if hasattr(self.env, 'db_transaction'):
-            with self.env.db_transaction as db:
-                FullBlogSetup(self.env).upgrade_environment(db)
-        else:
-            FullBlogSetup(self.env).upgrade_environment(self.env.get_db_cnx())
-
-    def tearDown(self):
-        self.env.destroy_db()
-        del self.env
+class GroupPostsByMonthTestCase(FullBlogTestCaseTemplate):
 
     def test_many_posts(self):
         # 2 posts in one period
@@ -47,19 +33,7 @@ class GroupPostsByMonthTestCase(unittest.TestCase):
         grouped = group_posts_by_month(get_blog_posts(self.env))
         self.assertEquals([], grouped)
 
-class GetBlogPostsTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.env = EnvironmentStub()
-        if hasattr(self.env, 'db_transaction'):
-            with self.env.db_transaction as db:
-                FullBlogSetup(self.env).upgrade_environment(db)
-        else:
-            FullBlogSetup(self.env).upgrade_environment(self.env.get_db_cnx())
-
-    def tearDown(self):
-        self.env.destroy_db()
-        del self.env
+class GetBlogPostsTestCase(FullBlogTestCaseTemplate):
 
     def test_get_by_category(self):
         bp = BlogPost(self.env, 'one')
