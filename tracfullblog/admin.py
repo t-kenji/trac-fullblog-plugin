@@ -10,7 +10,7 @@ License: BSD
 from trac.core import *
 from trac.admin import IAdminPanelProvider
 from trac.resource import Resource
-from trac.web.chrome import add_warning
+from trac.web.chrome import add_warning, Chrome
 
 # Relative imports
 from core import FullBlogCore
@@ -59,5 +59,8 @@ class FullBlogAdminPanel(Component):
         blog_admin['defaultpostname'] = self.env.config.get(
                                             'fullblog', 'default_postname')
         
-        return ('fullblog_admin.html', {'blog_admin': blog_admin})
+        if hasattr(Chrome(self.env), 'jenv'):       # jinja2
+            return ('fullblog_admin.html', {'blog_admin': blog_admin}, None)
+        else:                                       # genshi
+            return ('fullblog_admin.html', {'blog_admin': blog_admin})
 
