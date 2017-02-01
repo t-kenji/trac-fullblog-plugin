@@ -127,4 +127,4 @@ class FullBlogSetup(Component):
             cursor = db.cursor()
             cursor.execute(sql)
             rows = list(cursor)
-        return rows and int(rows[0]) or 0
+        return rows and int(rows[0][0]) or 0
